@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.IO;
 using System.Text;
 using System.Data;
@@ -12,6 +13,7 @@ using log4net;
 
 using WAHDV.structure;
 using WAHDV.DAL;
+using System.Threading.Tasks;
 
 [assembly: log4net.Config.XmlConfigurator(Watch = true)]
 namespace WAHDV
@@ -26,9 +28,9 @@ namespace WAHDV
 
         private WAHDataAccessLayer wahdal;
 
-        private Dictionary<UInt64, auctionItem> CurrentAllianceAuction;
-        private Dictionary<UInt64, auctionItem> CurrentHordeAuction;
-        private Dictionary<UInt64, auctionItem> CurrentNeutralAuction;
+        private ConcurrentDictionary<UInt64, auctionItem> CurrentAllianceAuction;
+        private ConcurrentDictionary<UInt64, auctionItem> CurrentHordeAuction;
+        private ConcurrentDictionary<UInt64, auctionItem> CurrentNeutralAuction;
 
         private JsonSerializerSettings jsSettings;
         private static readonly log4net.ILog log = log4net.LogManager.GetLogger("WAHDV");
@@ -39,9 +41,9 @@ namespace WAHDV
 
             wahdal = new WAHDataAccessLayer();
 
-            CurrentAllianceAuction = new Dictionary<UInt64, auctionItem>();
-            CurrentHordeAuction = new Dictionary<UInt64, auctionItem>();
-            CurrentNeutralAuction = new Dictionary<UInt64, auctionItem>();
+            CurrentAllianceAuction = new ConcurrentDictionary<UInt64, auctionItem>();
+            CurrentHordeAuction = new ConcurrentDictionary<UInt64, auctionItem>();
+            CurrentNeutralAuction = new ConcurrentDictionary<UInt64, auctionItem>();
 
             jsSettings = new JsonSerializerSettings();
             jsSettings.MissingMemberHandling = MissingMemberHandling.Ignore;
@@ -149,7 +151,7 @@ namespace WAHDV
 
         private void AllianceAuctionUpdate(List<auctionItem> allianceList)
         {
-            Dictionary<UInt64, auctionItem> alliance = ConvertList(allianceList);
+            ConcurrentDictionary<UInt64, auctionItem> alliance = ConvertList(allianceList);
             log.Info("start alliance auction data processing");
             Console.WriteLine("start alliance auction data processing");
 
@@ -166,7 +168,7 @@ namespace WAHDV
 
         private void HordeAuctionUpdate(List<auctionItem> hordeList)
         {
-            Dictionary<UInt64, auctionItem> horde = ConvertList(hordeList);
+            ConcurrentDictionary<UInt64, auctionItem> horde = ConvertList(hordeList);
             log.Info("start horde auction data processing");
             Console.WriteLine("start horde auction data processing");
 
@@ -183,7 +185,7 @@ namespace WAHDV
 
         private void NeutralAuctionUpdate(List<auctionItem> neutralList)
         {
-            Dictionary<UInt64, auctionItem> neutral = ConvertList(neutralList);
+            ConcurrentDictionary<UInt64, auctionItem> neutral = ConvertList(neutralList);
             log.Info("start neutral auction data processing");
             Console.WriteLine("start neutral auction data processing");
 
@@ -198,24 +200,23 @@ namespace WAHDV
             CurrentNeutralAuction = neutral;
         }
 
-        private Dictionary<UInt64, auctionItem> ConvertList(List<auctionItem> ItemList)
+        private ConcurrentDictionary<UInt64, auctionItem> ConvertList(List<auctionItem> ItemList)
         {
-            Dictionary<UInt64, auctionItem> Items = new Dictionary<UInt64, auctionItem>();
+            ConcurrentDictionary<UInt64, auctionItem> Items = new ConcurrentDictionary<UInt64, auctionItem>();
             foreach (auctionItem item in ItemList)
             {
-                Items.Add(item.auc, item);
+                Items.TryAdd(item.auc, item);
             }
             return Items;
         }
 
-        private int AddNewItem(Dictionary<UInt64, auctionItem> CurrentAuction, ref List<auctionItem> NewAuctionList, string AuctionHouse)
+        private int AddNewItem(ConcurrentDictionary<UInt64, auctionItem> CurrentAuction, ref List<auctionItem> NewAuctionList, string AuctionHouse)
         {
             DataTable ToAddItemTBL = new DataTable();
-            auctionItem tmpItem;
             FormatItemTable(ref ToAddItemTBL);
             foreach (auctionItem item in NewAuctionList)
             {
-                if ( !CurrentAuction.ContainsKey(item.auc))
+                if (!CurrentAuction.ContainsKey(item.auc))
                 {
                     DataRow dr = ToAddItemTBL.NewRow();
                     AuctionItem2Row(item, AuctionHouse, ref dr);
@@ -223,6 +224,7 @@ namespace WAHDV
                 }
                 else
                 {
+                    auctionItem tmpItem;
                     if (CurrentAuction.TryGetValue(item.auc, out tmpItem))
                     {
                         if (item.bid > tmpItem.bid)
@@ -235,7 +237,7 @@ namespace WAHDV
             return wahdal.SaveNewItem(ref ToAddItemTBL);
         }
 
-        private int AddNewTransaction(Dictionary<UInt64, auctionItem> PreAuction, Dictionary<UInt64, auctionItem> CurrentAuction, string AuctionHouse)
+        private int AddNewTransaction(ConcurrentDictionary<UInt64, auctionItem> PreAuction, ConcurrentDictionary<UInt64, auctionItem> CurrentAuction, string AuctionHouse)
         {
             DataTable ToAddTransTBL = new DataTable();
             FormatAuctionTable(ref ToAddTransTBL);
