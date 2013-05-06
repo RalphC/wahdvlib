@@ -5,6 +5,7 @@ using System.Text;
 
 using System.Data;
 using System.Data.SqlClient;
+using WAHDV.structure;
 
 namespace WAHDV.DAL
 {
@@ -57,7 +58,7 @@ namespace WAHDV.DAL
             return adapter.Update(NewTransaction);
         }
 
-        public int SaveNewItem(ref DataTable NewItemTBL)
+        public int SaveNewItems(ref DataTable NewItemTBL)
         {
             command = new SqlCommand(SQL_SELECT_ITEM, GetDBConnection());
             adapter = new SqlDataAdapter();
@@ -66,6 +67,14 @@ namespace WAHDV.DAL
             adapter.InsertCommand = builder.GetInsertCommand();
             adapter.ContinueUpdateOnError = true;
             return adapter.Update(NewItemTBL);
+        }
+
+        public bool SaveNewItem(auctionItem item)
+        {
+            string strInsert = "INSERT INTO dbo.TBL_Moonglade_AuctionItem SET auc = " + item.auc + "";
+            command = new SqlCommand(strInsert, connection);
+            if (command.ExecuteNonQuery() == 1) return true;
+            else return false;
         }
 
         public SqlConnection GetDBConnection()

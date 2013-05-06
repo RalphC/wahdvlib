@@ -22,8 +22,6 @@ namespace WAHDV
     {
         private static wahdvlib _instance = null;
         private auctionData currentData;
-        //private UInt64 lngLastModified = 0;
-        //private string strAuctionData = "";
         private string strRealm;
 
         private WAHDataAccessLayer wahdal;
@@ -45,9 +43,7 @@ namespace WAHDV
             CurrentHordeAuction = new ConcurrentDictionary<UInt64, auctionItem>();
             CurrentNeutralAuction = new ConcurrentDictionary<UInt64, auctionItem>();
 
-            jsSettings = new JsonSerializerSettings();
-            jsSettings.MissingMemberHandling = MissingMemberHandling.Ignore;
-            jsSettings.NullValueHandling = NullValueHandling.Ignore;
+
         }
 
         public static wahdvlib getInstance(string Realm)
@@ -57,6 +53,13 @@ namespace WAHDV
                 _instance = new wahdvlib(Realm);
             }
             return _instance;
+        }
+
+        private void initJsSetting()
+        {
+            jsSettings = new JsonSerializerSettings();
+            jsSettings.MissingMemberHandling = MissingMemberHandling.Ignore;
+            jsSettings.NullValueHandling = NullValueHandling.Ignore;
         }
 
         public void check()
@@ -234,7 +237,7 @@ namespace WAHDV
                     }
                 }
             }
-            return wahdal.SaveNewItem(ref ToAddItemTBL);
+            return wahdal.SaveNewItems(ref ToAddItemTBL);
         }
 
         private int AddNewTransaction(ConcurrentDictionary<UInt64, auctionItem> PreAuction, ConcurrentDictionary<UInt64, auctionItem> CurrentAuction, string AuctionHouse)
